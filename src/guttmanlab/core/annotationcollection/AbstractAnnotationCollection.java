@@ -103,19 +103,17 @@ public abstract class AbstractAnnotationCollection<T extends Annotation> impleme
 	
 	@Override
 	public int numOverlappers(Annotation region, boolean fullyContained) {
-		int counter=0;
-		CloseableIterator<T> iter=sortedIterator(region, fullyContained);
+		int counter = 0;
+		CloseableIterator<T> iter = sortedIterator(region, fullyContained);
 		try {
-			while(iter.hasNext()){
+			while (iter.hasNext()) {
 				iter.next();
 				counter++;
 			}
+		} finally {
 			iter.close();
-			return counter;
-		} catch(Exception e) {
-			iter.close();
-			throw (e);
 		}
+		return counter;
 	}
 	
 	@Override

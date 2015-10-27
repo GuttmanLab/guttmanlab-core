@@ -12,6 +12,7 @@ import java.io.File;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.TreeMap;
 
 import org.apache.commons.collections15.Predicate;
@@ -157,111 +158,85 @@ public class BAMPairedFragmentCollection extends AbstractAnnotationCollection<Pa
 	@Override
 	public CloseableIterator<PairedMappedFragment<SAMFragment>> sortedIterator(Annotation region, boolean fullyContained) {
 		//Go through the fragments iterator and parse from SAM into new format
-		SpecialBAMPECollection fragments=this.getPairedEndFragmentFile();
+		SpecialBAMPECollection fragments = this.getPairedEndFragmentFile();
 		Collection<Predicate<PairedMappedFragment<SAMFragment>>> c = getFilters();
 		Iterator<Predicate<PairedMappedFragment<SAMFragment>>> iter = c.iterator();
-		while(iter.hasNext())
+		while (iter.hasNext()) {
 			fragments.addFilter(iter.next());
+		}
 		return fragments.sortedIterator(region, fullyContained);
 	}
 
 	/**
-	 * Make the paired end fragments from single end reads
-	 * @author mguttman
-	 *
+	 * Iterator which goes through a paired-end BAM file and returns complete fragments. It does this by going
+	 * through the BAM file with a CloseableIterator<SAMFragment>. When a read is examined, but its mate has
+	 * yet to be seen, it is stored in a Map and the next read is examined. If its mate has already been seen,
+	 * the mate is retrieved from the Map, the read and its mate are used to construct a PairedMappedFragment,
+	 * and that PairedMappedFragment is returned.
 	 */
 	private class PairedIterator implements CloseableIterator<PairedMappedFragment<SAMFragment>>{
 
 		CloseableIterator<SAMFragment> iter;
-		Pair<SAMFragment> fullyFormed;
+		Pair<SAMFragment> nextPair;
 		Map<String, Pair<SAMFragment>> partials;
-		String currentReference="";
-		IntervalTree<String> matePosition;
+		String currentReference;
 
 		public PairedIterator(CloseableIterator<SAMFragment> iter){
-			this.iter=iter;
-			this.partials=new TreeMap<String, Pair<SAMFragment>>();
-			this.matePosition=new IntervalTree<String>();
+			this.iter = iter;
+			this.partials = new TreeMap<String, Pair<SAMFragment>>();
+			findNext();
 		}
 
 		@Override
 		public boolean hasNext() {
-			if(fullyFormed!=null){ return true;}
-			//else if(iter.hasNext()){update(); return hasNext();}
-			findNext();
-			return fullyFormed!=null;
+			return nextPair != null;
 		}
 
 		private void findNext() {
-			while(iter.hasNext() && fullyFormed==null)
-			{			
-				SAMFragment read=iter.next();
-	
-				//When switching from chromosome we should clear cache
-				if(!read.getReferenceName().equalsIgnoreCase(currentReference)){
-					currentReference=read.getReferenceName();
-					this.partials=new TreeMap<String, Pair<SAMFragment>>();
-					this.matePosition=new IntervalTree<String>();
+			nextPair = null;
+			while (iter.hasNext() && nextPair == null) {			
+				SAMFragment read = iter.next();
+				SAMRecord rec = read.getSamRecord();
+				
+				// When switching from chromosomes we should clear cache
+				if (!read.getReferenceName().equalsIgnoreCase(currentReference)){
+					currentReference = read.getReferenceName();
+					this.partials = new TreeMap<String, Pair<SAMFragment>>();
 				}
 	
+				boolean isPaired = read.getSamRecord().getReadPairedFlag();
+				boolean mateMapped = !read.getSamRecord().getMateUnmappedFlag();
+				boolean onSameReference = rec.getReferenceName().equalsIgnoreCase(rec.getMateReferenceName());
 	
-				//check if read has a pair
-				boolean isPaired=read.getSamRecord().getReadPairedFlag();
-				boolean mateMapped=!read.getSamRecord().getMateUnmappedFlag();
-				boolean onSameReference=read.getSamRecord().getReferenceName().equalsIgnoreCase(read.getSamRecord().getMateReferenceName());
-	
-				if(isPaired && mateMapped && onSameReference){
-					Pair<SAMFragment> pair;
-					if(partials.containsKey(read.getName())){
-						pair=partials.remove(read.getName());
-					}
-					else{pair=new Pair<SAMFragment>();}
-	
-					if(read.getSamRecord().getFirstOfPairFlag()){
-						//if(pair.hasValue1()){System.err.println("WARN: Overriding value 1");}
+				if (isPaired && mateMapped && onSameReference) {
+					Pair<SAMFragment> pair = partials.containsKey(read.getName()) ?
+											 partials.remove(read.getName()) :       // Mate found in a Pair. Get it.
+											 new Pair<SAMFragment>();                // Mate not seen. Make a new pair.
+
+					if (read.getSamRecord().getFirstOfPairFlag()) {
 						pair.setValue1(read);
-					}
-					else{
-						//if(pair.hasValue2()){System.err.println("WARN: Overriding value 2");}
+					} else {
 						pair.setValue2(read);
 					}
 	
-					if(pair.hasValue1() && pair.hasValue2()){
-						fullyFormed=pair;
-						this.matePosition.remove(read.getSamRecord().getAlignmentStart(), read.getSamRecord().getAlignmentStart());
+					if (pair.hasValue1() && pair.hasValue2()) {
+						nextPair = pair;                          // Pair is complete! Return it.
+					} else {
+						partials.put(read.getName(), pair);       // Pair is incomplete. Store the partial Pair.
 					}
-					else if(read.getSamRecord().getAlignmentStart()<read.getSamRecord().getMateAlignmentStart()){
-						partials.put(read.getName(), pair);
-						this.matePosition.put(read.getSamRecord().getMateAlignmentStart(), read.getSamRecord().getMateAlignmentStart(), read.getName());
-					}
-					else{
-						//TODO Consider saving the unmapped reads
-					}
-	
-					removePartials(read);
 				}
-			}
-		}
-
-		/**
-		 * Check the number of partials less than the read-max
-		 * @param read
-		 * @return
-		 */
-		private void removePartials(SAMFragment read) {
-			Iterator<Node<String>> iter=this.matePosition.reverseIterator(read.getSamRecord().getAlignmentStart(), read.getSamRecord().getAlignmentStart());
-			while(iter.hasNext()){
-				Node<String> node=iter.next();
-				Pair<SAMFragment> pair=this.partials.remove(node.getValue()); //TODO Consider saving the unmapped reads
-				this.matePosition.remove(node.getStart(), node.getEnd());
 			}
 		}
 
 		@Override
 		public PairedMappedFragment<SAMFragment> next() {
-			PairedMappedFragment<SAMFragment> rtrn=new PairedMappedFragment<SAMFragment>(fullyFormed);
-			fullyFormed=null;
-			return rtrn;
+			if (!hasNext()) {
+				throw new NoSuchElementException("PairedIterator.next() called with no element.");
+			} else {
+				PairedMappedFragment<SAMFragment> result = new PairedMappedFragment<SAMFragment>(nextPair);
+				findNext();
+				return result;
+			}
 		}
 
 		@Override
@@ -272,8 +247,8 @@ public class BAMPairedFragmentCollection extends AbstractAnnotationCollection<Pa
 		@Override
 		public void close() {
 			iter.close();
-
-		}}
+		}
+	}
 	
 	public void writeToFile(String fileName) {
 		writeToFile(fileName, sortedIterator());
@@ -332,6 +307,12 @@ public class BAMPairedFragmentCollection extends AbstractAnnotationCollection<Pa
 		public CloseableIterator<PairedMappedFragment<SAMFragment>> sortedIterator(Annotation region, boolean fullyContained) {
 			return new FilteredIterator<PairedMappedFragment<SAMFragment>>(new WrappedIterator(reader, region), getFilters());
 		}
+		
+		/*  OLD CODE
+		@Override
+		public CloseableIterator<PairedMappedFragment<SAMFragment>> sortedIterator(Annotation region, boolean fullyContained) {
+			return new FilteredIterator<PairedMappedFragment<SAMFragment>>(new WrappedIterator(reader, region), getFilters());
+		}*/
 
 		public void writeToFile(String fileName) {
 			writeToFile(fileName, sortedIterator());
@@ -364,17 +345,21 @@ public class BAMPairedFragmentCollection extends AbstractAnnotationCollection<Pa
 			throw new UnsupportedOperationException("TODO");
 		}
 		
-		
-		private class WrappedIterator implements CloseableIterator<PairedMappedFragment<SAMFragment>>{
+		/**
+		 * A wrapper class for HTSJDK's CloseableIterator
+		 */
+		private class WrappedIterator implements CloseableIterator<PairedMappedFragment<SAMFragment>> {
 
 			SAMRecordIterator iter;
 			
 			public WrappedIterator(SAMFileReader reader){
-				this.iter=reader.iterator();
+				this.iter = reader.iterator();
 			}
 			
 			public WrappedIterator(SAMFileReader reader, Annotation region) {
-				this.iter=reader.queryOverlapping(region.getReferenceName(), region.getReferenceStartPosition()+1, region.getReferenceEndPosition());
+				this.iter = reader.queryOverlapping(region.getReferenceName(),
+													region.getReferenceStartPosition() + 1,
+													region.getReferenceEndPosition());
 			}
 
 			@Override
@@ -384,8 +369,8 @@ public class BAMPairedFragmentCollection extends AbstractAnnotationCollection<Pa
 
 			@Override
 			public PairedMappedFragment<SAMFragment> next() {
-				SAMRecord record=iter.next();
-				PairedMappedFragment<SAMFragment> reads=getSAMRecords(reader.getFileHeader(), record);
+				SAMRecord record = iter.next();
+				PairedMappedFragment<SAMFragment> reads = getSAMRecords(reader.getFileHeader(), record);
 				return reads;
 			}
 
