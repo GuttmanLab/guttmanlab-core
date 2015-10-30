@@ -2,7 +2,9 @@ package guttmanlab.core.annotation;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
@@ -10,37 +12,36 @@ import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMRecord;
 
 /**
- * An abstract class that implements many of the shared features of an annotation
- * @author mguttman
- *
+ * An abstract class that implements many of the shared features of an Annotation
  */
 public abstract class AbstractAnnotation implements Annotation {
 	
 	@Override
 	public Annotation intersect(Annotation other) {
-		BlockedAnnotation rtrn=new BlockedAnnotation();
-		Iterator<SingleInterval> blocks1=getBlocks();
-		while(blocks1.hasNext()){
-			SingleInterval block1=blocks1.next();
-			Iterator<SingleInterval> blocks2=other.getBlocks();
-			while(blocks2.hasNext()){
-				SingleInterval block2=blocks2.next();
-				SingleInterval inter=intersect(block1, block2);
-				if(inter!=null){rtrn.addBlocks(inter);}
+		BlockedAnnotation rtrn = new BlockedAnnotation();
+		Iterator<SingleInterval> blocks1 = getBlocks();
+		while (blocks1.hasNext()){
+			SingleInterval block1 = blocks1.next();
+			Iterator<SingleInterval> blocks2 = other.getBlocks();
+			while(blocks2.hasNext()) {
+				SingleInterval block2 = blocks2.next();
+				SingleInterval inter = intersect(block1, block2);
+				if (inter != null) {
+					rtrn.addBlocks(inter);
+				}
 			}
-			
 		}
 		return rtrn;
 	}
 	
 	/**
-	 * Get blocks as a collection
-	 * @return The set of blocks
+	 * Get the component blocks of this Annotation as a Collection.
+	 * @return The Collection of blocks. If the Annotation has no blocks, this collection is empty.
 	 */
 	public Collection<Annotation> getBlockSet() {
 		Iterator<SingleInterval> iter = getBlocks();
 		Collection<Annotation> rtrn = new ArrayList<Annotation>();
-		while(iter.hasNext()) {
+		while (iter.hasNext()) {
 			rtrn.add(iter.next());
 		}
 		return rtrn;
@@ -49,36 +50,36 @@ public abstract class AbstractAnnotation implements Annotation {
 
 	/**
 	 * Helper method to compute the overlap between single blocks
-	 * @param block1 Block1
-	 * @param block2 Block2
-	 * @return The intersection or null if no intersection exists
+	 * @param block1 Block 1
+	 * @param block2 Block 2
+	 * @return The intersection between block 1 and block 2, or null if no intersection exists
 	 */
 	private SingleInterval intersect(SingleInterval block1, SingleInterval block2) {
-		if(!overlaps(block1, block2)){return null;}
-		int newStart=Math.max(block1.getReferenceStartPosition(), block2.getReferenceStartPosition());
-		int newEnd=Math.min(block1.getReferenceEndPosition(), block2.getReferenceEndPosition());
-		Strand consensus=Annotation.Strand.consensusStrand(block1.getOrientation(), block2.getOrientation());
+		if (!overlaps(block1, block2)) {
+			return null;
+		}
+		int newStart = Math.max(block1.getReferenceStartPosition(), block2.getReferenceStartPosition());
+		int newEnd = Math.min(block1.getReferenceEndPosition(), block2.getReferenceEndPosition());
+		Strand consensus = Annotation.Strand.consensusStrand(block1.getOrientation(), block2.getOrientation());
 		return new SingleInterval(block1.getReferenceName(), newStart, newEnd, consensus);
 	}
 
 	@Override
 	public Annotation merge(Annotation other) {
-		throw new UnsupportedOperationException("Method broken");
-//		BlockedAnnotation rtrn=new BlockedAnnotation();
-//		Iterator<SingleInterval> blocks1=getBlocks();
-//		while(blocks1.hasNext()){
-//			SingleInterval block1=blocks1.next();
-//			Iterator<SingleInterval> blocks2=other.getBlocks();
-//			while(blocks2.hasNext()){
-//				SingleInterval block2=blocks2.next();
-//				if(block1.overlaps(block2)){
-//					SingleInterval merge=merge(block1, block2);
-//					if(merge!=null){rtrn.addBlocks(merge);}
-//				}
-//			}
-//			
-//		}
-//		return rtrn;
+		if (!getReferenceName().equals(other.getReferenceName())) {
+			throw new IllegalArgumentException("Attempted to merge two Annotations with different reference names: "
+					+ getReferenceName() + " and " + other.getReferenceName());
+		}
+		if (!getOrientation().equals(other.getOrientation())) {
+			throw new IllegalArgumentException("Attempted to merge two Annotations with different orientations: "
+					+ getOrientation().toString() + " and " + other.getOrientation().toString());
+		}
+		BlockedAnnotation result = new BlockedAnnotation(getBlockSet(), getName());
+        Iterator<SingleInterval> blocksToAdd = other.getBlocks();
+        while (blocksToAdd.hasNext()) {
+			result.addBlocks(blocksToAdd.next());
+        }
+		return result;
 	}
 
 	protected SingleInterval merge(SingleInterval block1, SingleInterval block2) {
@@ -91,29 +92,35 @@ public abstract class AbstractAnnotation implements Annotation {
 	}
 
 	@Override
+	/**
+	 * Not yet implemented
+	 */
 	public Annotation minus(Annotation other) {
 		// FIXME Auto-generated method stub
 		throw new UnsupportedOperationException("TODO");
 	}
 	
 	@Override
+	/**
+	 * Determines whether or not this Annotation overlaps another.
+	 * @param The Annotation to check
+	 * @return A boolean indicating whether this Annotation overlaps the other.
+	 */
 	public boolean overlaps(Annotation other) {
-		//TODO This method still needs to be tested to ensure that it does what we expect
-		//Check if the blocks overlap
-		Iterator<SingleInterval> blocks1=getBlocks();
-		while(blocks1.hasNext()){
-			SingleInterval block1=blocks1.next();
-			Iterator<SingleInterval> blocks2=other.getBlocks();
-			while(blocks2.hasNext()){
-				SingleInterval block2=blocks2.next();
-				if(overlaps(block1, block2)){
+		Iterator<SingleInterval> blocks1 = getBlocks();
+		while (blocks1.hasNext()) {
+			SingleInterval block1 = blocks1.next();
+			Iterator<SingleInterval> blocks2 = other.getBlocks();
+			while (blocks2.hasNext()){
+				SingleInterval block2 = blocks2.next();
+				if (block2.overlaps(block1)) {
 					return true;
 				}
 			}	
 		}
 		return false;
 	}
-	
+
 	/**
 	 * Helper method to calculate overlaps from single blocks
 	 * @param block1
@@ -130,12 +137,6 @@ public abstract class AbstractAnnotation implements Annotation {
 		}
 		
 		return false;
-	}
-
-	@Override
-	public boolean contains(Annotation other) {
-		// FIXME Auto-generated method stub
-		throw new UnsupportedOperationException("TODO");
 	}
 	
 	@Override
@@ -282,36 +283,34 @@ public abstract class AbstractAnnotation implements Annotation {
 		return record;
 	}
 	
-	public boolean fullyContained(Annotation other){
-		//All blocks in other must be in blocks on this
-		//Go through all blocks2 and check that they are in this
-		Iterator<SingleInterval> blocks2=other.getBlocks();
-		while(blocks2.hasNext()){
-			SingleInterval block2=blocks2.next();
-			boolean isInThis=false;
-			//check that each block2 has some overlap with a block1
-			Iterator<SingleInterval> blocks1=getBlocks();
-			while(blocks1.hasNext()){
-				SingleInterval block1=blocks1.next();
-				if(block1.overlaps(block2)){
-					isInThis=true;
-					if(!fullyContained(block1, block2)){
-						return false;
-					}
+	@Override
+	public boolean contains(Annotation other) {
+
+		Iterator<SingleInterval> blocks2 = other.getBlocks();
+
+		// Go through all blocks2 and check that they are in this
+		while (blocks2.hasNext()) {
+
+			SingleInterval block2 = blocks2.next();
+			Iterator<SingleInterval> blocks1 = getBlocks();
+			boolean isContained = false;
+
+			// Check that each block2 is contained by a block1
+			while (blocks1.hasNext() && !isContained) {
+				SingleInterval block1 = blocks1.next();
+				if (block1.contains(block2)) {
+					isContained = true;
 				}
 			}
-			if(!isInThis){return false;} //There are no blocks in this that the block overlapped, cant be fully contained
+			
+			// If a block2 isn't fully contained by any block1, return false 
+			if (!isContained) {
+				return false;
+			}
 		}
 		
+		// Otherwise, all blocks are contained. Return true.
 		return true;
-	}
-	
-	private boolean fullyContained(SingleInterval block1, SingleInterval block2){
-		//is only fully contained if block2 is equal to or a subset of block1
-		if(block1.getReferenceStartPosition()<=block2.getReferenceStartPosition() && block1.getReferenceEndPosition()>=block2.getReferenceEndPosition()){
-			return true;
-		}
-		return false;	
 	}
 	
 	public Annotation trim(int start,int end)
@@ -368,10 +367,10 @@ public abstract class AbstractAnnotation implements Annotation {
 	}
 	
 	@Override
-	public boolean equals(Object other)
-	{
-		if(other instanceof Annotation)
-			return this.compareToAnnotation((Annotation)other)==0;
+	public boolean equals(Object other) {
+		if (other instanceof Annotation) {
+			return this.compareToAnnotation((Annotation)other) == 0;
+		}
 		return false;
 	}
 	

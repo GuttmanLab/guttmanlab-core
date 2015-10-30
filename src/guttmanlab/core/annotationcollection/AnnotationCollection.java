@@ -1,10 +1,8 @@
 package guttmanlab.core.annotationcollection;
 
 import guttmanlab.core.annotation.Annotation;
-import guttmanlab.core.annotation.BlockedAnnotation;
 import guttmanlab.core.annotation.DerivedAnnotation;
 import guttmanlab.core.annotation.PopulatedWindow;
-import guttmanlab.core.annotation.SAMFragment;
 import guttmanlab.core.coordinatespace.CoordinateSpace;
 
 import java.util.Collection;
@@ -16,7 +14,6 @@ import org.apache.commons.collections15.Predicate;
 /**
  * A container of annotations
  * @author prussell
- *
  */
 public interface AnnotationCollection<T extends Annotation> {
 	

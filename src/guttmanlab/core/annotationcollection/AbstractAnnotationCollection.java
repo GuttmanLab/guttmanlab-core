@@ -42,10 +42,12 @@ public abstract class AbstractAnnotationCollection<T extends Annotation> impleme
 		numAnnotations = 0;
 	}
 	
+	// TODO This is broken.
 	public void addFilter(Collection<Predicate<PairedMappedFragment<SAMFragment>>> filters) {
 		Iterator<Predicate<PairedMappedFragment<SAMFragment>>> iter = filters.iterator();
-		while(iter.hasNext())
+		while (iter.hasNext()) {
 			filters.add(iter.next());
+		}
 	}
 
 	@Override

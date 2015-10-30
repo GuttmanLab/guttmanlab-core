@@ -22,19 +22,23 @@ public class SAMFragment extends AbstractNamedAnnotation implements MappedFragme
 	private Collection<? extends ReadFlag> readFlags;
 	public static String SAM_NUM_HITS_TAG = "NH";
 
-	public SAMFragment(SAMRecord record){
+	/**
+	 * Constructor. The boolean 'strandIsFirstOfPair' defaults to false.
+	 * @param record The SAM record
+	 */
+	public SAMFragment(SAMRecord record) {
 		this(record, false);
 	}
 	
 	/**
 	 * 
-	 * @param record The SAM Record
-	 * @param strandIsFirstOfPair Whether to treat the first of pair read as the fragment strand
+	 * @param record The SAM record
+	 * @param strandIsFirstOfPair Whether to treat the first-of-pair read as the fragment strand
 	 */
 	public SAMFragment(SAMRecord record, boolean strandIsFirstOfPair){
 		super();
-		this.record=record;
-		this.strandIsFirstOfPair=strandIsFirstOfPair;
+		this.record = record;
+		this.strandIsFirstOfPair = strandIsFirstOfPair;
 	}
 	
 	@Override
@@ -48,9 +52,10 @@ public class SAMFragment extends AbstractNamedAnnotation implements MappedFragme
 	}
 	
 	private Annotation getAnnotation(){
-		if(this.annotation!=null){return this.annotation;}
-		else{
-			return parseCigar(record.getCigarString(), record.getReferenceName(), record.getAlignmentStart()-1, getOrientation(), getName()); 
+		if (this.annotation != null) {
+			return this.annotation;
+		} else {
+			return parseCigar(record.getCigarString(), record.getReferenceName(), record.getAlignmentStart() - 1, getOrientation(), getName()); 
 		}
 	}
 
@@ -70,8 +75,7 @@ public class SAMFragment extends AbstractNamedAnnotation implements MappedFragme
 
 	@Override
 	public int getReferenceEndPosition() {
-		//return record.getAlignmentEnd();  //this method uses an incorrect cigar parser
-		return record.getAlignmentStart() + this.size()-1;
+		return record.getAlignmentEnd();  // This method possibly uses an incorrect cigar parser
 	}
 	
 	/**
@@ -87,26 +91,26 @@ public class SAMFragment extends AbstractNamedAnnotation implements MappedFragme
 		return record;
 	}
 	
-	 /**
-     * Populate an annotation from a Cigar string
-     * @param cigarString Cigar string
-     * @param chr Fragment reference sequence
-     * @param start Fragment start
-	 * @param strand Fragment strand
-	 * @param name Name of annotation to return
-     * @return A blocked annotation
+	/**
+     * Construct an annotation from a CIGAR string
+     * @param cigarString The CIGAR string
+     * @param chr The fragment reference sequence
+     * @param start The fragment start
+	 * @param strand The fragment strand
+	 * @param name The name of the annotation to return
+     * @return The BlockedAnnotation implied by the CIGAR string
      */
 	public static Annotation parseCigar(String cigarString, String chr, int start, Strand strand, String name) {
     	Cigar cigar = TextCigarCodec.getSingleton().decode(cigarString);
-    	List<CigarElement> elements=cigar.getCigarElements();
-		
-    	BlockedAnnotation rtrn=new BlockedAnnotation(name);
+    	List<CigarElement> elements = cigar.getCigarElements();
+
+    	BlockedAnnotation rtrn = new BlockedAnnotation(name);
     	
 		int currentOffset = start;
 		
-		for(CigarElement element: elements){
-			CigarOperator op=element.getOperator();
-			int length=element.getLength();
+		for (CigarElement element : elements) {
+			CigarOperator op = element.getOperator();
+			int length = element.getLength();
 			
 			//then lets create a block from this
 			if(op.equals(CigarOperator.MATCH_OR_MISMATCH)){

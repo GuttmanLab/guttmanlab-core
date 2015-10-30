@@ -5,16 +5,18 @@ import guttmanlab.core.annotation.Annotation;
 import guttmanlab.core.annotation.PairedMappedFragment;
 import guttmanlab.core.annotation.SAMFragment;
 import guttmanlab.core.annotation.SingleInterval;
-import guttmanlab.core.annotation.predicate.StrandFilter;
+import guttmanlab.core.annotation.predicate.ContainedByFilter;
+import guttmanlab.core.annotation.predicate.OverlapsFilter;
 import guttmanlab.core.coordinatespace.CoordinateSpace;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Collection;
+
+import org.apache.commons.collections15.Predicate;
 
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMFileReader;
-import net.sf.samtools.SAMFileReader.ValidationStringency;
 import net.sf.samtools.SAMFileWriter;
 import net.sf.samtools.SAMFileWriterFactory;
 import net.sf.samtools.SAMRecord;
@@ -24,7 +26,6 @@ import net.sf.samtools.util.CloseableIterator;
 /**
  * This class represents a single-end read collection
  * @author mguttman
- *
  */
 public class BAMSingleReadCollection extends AbstractAnnotationCollection<SAMFragment>{
 
@@ -47,7 +48,6 @@ public class BAMSingleReadCollection extends AbstractAnnotationCollection<SAMFra
 		return getBamFile().replaceAll(".bam","");
 	}
 	
-	
 	@Override
 	public CloseableIterator<SAMFragment> sortedIterator() {
 		return new FilteredIterator<SAMFragment>(new WrappedIterator(reader.iterator()), getFilters());
@@ -55,90 +55,33 @@ public class BAMSingleReadCollection extends AbstractAnnotationCollection<SAMFra
 
 	@Override
 	public CloseableIterator<SAMFragment> sortedIterator(Annotation region, boolean fullyContained) {
-		CloseableIteratorChain iter_chain = new CloseableIteratorChain(region);
-		return new FilteredIterator<SAMFragment>(iter_chain, getFilters(),region.getOrientation());
+
+		// Create a single contiguous interval.
+		Annotation contig = new SingleInterval(region.getReferenceName(),
+				   region.getReferenceStartPosition(),
+				   region.getReferenceEndPosition(),
+				   region.getOrientation(),
+				   region.getName());
+		
+		// Get the reads that overlap this 'contig' interval.
+		CloseableIterator<SAMFragment> iter = new WrappedIterator(reader.queryOverlapping(contig.getReferenceName(),
+				   												  contig.getReferenceStartPosition() + 1,
+				   												  contig.getReferenceEndPosition()));
+		
+		// Add existing filters. Also add an additional filter depending on 'fullyContained'.
+		// Copy the filters ArrayList(), so we don't add filters to the original.
+		Collection<Predicate<SAMFragment>> filters = new ArrayList<Predicate<SAMFragment>>(getFilters());
+		if (fullyContained) {
+			filters.add(new ContainedByFilter<SAMFragment>(region));
+		} else {
+			filters.add(new OverlapsFilter<SAMFragment>(region));
+		}
+		
+		// TODO Check if we need the StrandFilter provided by the third argument. The overlap/contains methods
+		// might deal with strandedness already.
+		return new FilteredIterator<SAMFragment>(iter, filters, region.getOrientation());
 	}
 	
-	public class CloseableIteratorChain implements Iterator<SAMFragment>{
-		
-		private CloseableIterator<SAMFragment> currentIterator;
-		private Iterator<SingleInterval> blocks;
-		private Annotation region;
-		private SAMFragment next;
-		private ArrayList<String> splicedReadNames;
-		
-		public CloseableIteratorChain(Annotation region)
-		{
-			this.region = region;
-			this.blocks = region.getBlocks();
-			this.currentIterator = null;
-			this.splicedReadNames = new ArrayList<String>();
-		}
-		
-		public boolean hasNext(){
-			if(currentIterator == null)
-			{
-				if(blocks.hasNext())
-				{
-					Annotation block = blocks.next();
-					currentIterator = new WrappedIterator(reader.queryOverlapping(region.getReferenceName(), block.getReferenceStartPosition()+1,block.getReferenceEndPosition()));
-					return hasNext();
-				}
-				else //there were no more blocks
-					return false;
-			}
-			else
-			{
-				findNext();
-				if(next!=null)
-				{
-					return true;
-				}
-				else //we've reached the end of the current iterator
-				{
-					currentIterator.close();
-					currentIterator = null;
-					return hasNext();
-				}
-			}
-		}
-		
-		private void findNext()
-		{
-			if(next==null && currentIterator.hasNext())
-			{
-				SAMFragment n = currentIterator.next();
-				if(n.getNumberOfBlocks()>1)
-				{
-					boolean firstOfPair = n.getSamRecord().getReadPairedFlag() ? n.getSamRecord().getFirstOfPairFlag() : true;
-					String id = ""+n.getName()+firstOfPair;
-					if(!splicedReadNames.contains(id))
-					{
-						this.next = n;
-						splicedReadNames.add(id);
-					}
-					else
-						findNext();
-				}
-				else
-					this.next = n;
-			}
-		}
-		
-		@Override
-		public SAMFragment next() {
-			SAMFragment n = next;
-			this.next = null;
-			return n;
-		}
-
-		@Override
-		public void remove() {
-			throw new UnsupportedOperationException();
-		}
-	}
-
-		
 	//TODO Consider whether to delete
 	public void writeToFile(String fileName) {
 		CloseableIterator<SAMFragment> iter= sortedIterator();
@@ -161,12 +104,15 @@ public class BAMSingleReadCollection extends AbstractAnnotationCollection<SAMFra
 		writeToFile(fileName, iter);
 	}
 	
+	/**
+	 * A WrappedIterator simply wraps Picard's SAMRecordIterator.
+	 */
 	public class WrappedIterator implements CloseableIterator<SAMFragment>{
 
 		SAMRecordIterator iter;
 		
 		public WrappedIterator(SAMRecordIterator iter){
-			this.iter=iter;
+			this.iter = iter;
 		}
 
 		@Override

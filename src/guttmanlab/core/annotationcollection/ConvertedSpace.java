@@ -79,7 +79,7 @@ public class ConvertedSpace<T extends Annotation> extends AbstractAnnotationColl
 		return rtrn;
 	}
 	
-	public <X extends Annotation> Collection<DerivedAnnotation<X>> convertFromReference(X annotation, boolean fullyContained){
+	public <X extends Annotation> Collection<DerivedAnnotation<X>> convertFromReference(X annotation, boolean fullyContained) {
 		Collection<DerivedAnnotation<X>> rtrn=new ArrayList<DerivedAnnotation<X>>();
 
 		//Find features overlapping the annotation
@@ -90,7 +90,7 @@ public class ConvertedSpace<T extends Annotation> extends AbstractAnnotationColl
 			Annotation feature=iter.next();
 			Annotation intersect=feature.intersect(annotation); //TODO Consider whether to remove this, it may not be needed and is expensive per read
 			//Is annotation fully contained in feature
-			boolean isFullyContained=feature.fullyContained(annotation);
+			boolean isFullyContained=feature.contains(annotation);
 			if(intersect.size()>0){
 				if(!fullyContained || isFullyContained){
 					//Annotation interval=feature.convertToFeatureSpace(intersect);

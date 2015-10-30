@@ -7,8 +7,10 @@ import guttmanlab.core.datastructures.IntervalTree;
 import java.util.Collection;
 import java.util.Iterator;
 
-
-
+/**
+ * Represents an Annotation consisting of some number of disjoint SingleIntervals (for example, a
+ * gene consisting of multiple exons).
+ */
 public class BlockedAnnotation extends AbstractAnnotation {
 
 	private IntervalTree<SingleInterval> blocks;
@@ -21,29 +23,29 @@ public class BlockedAnnotation extends AbstractAnnotation {
 	private Strand orientation;
 	
 	/**
-	 * An empty constructor
+	 * Constructor. Initializes a BlockedAnnotation containing no blocks.
 	 */
-	public BlockedAnnotation(){
-		this.blocks=new IntervalTree<SingleInterval>();
-		this.started=false;
+	public BlockedAnnotation() {
+		this.blocks = new IntervalTree<SingleInterval>();
+		this.started = false;
 	}
 	
 	/**
-	 * Initialize as empty but with name
+	 * Constructor. Initializes a named BlockedAnnotation containing no blocks.
 	 */
-	public BlockedAnnotation(String name){
+	public BlockedAnnotation(String name) {
 		this();
-		this.name=name;
+		this.name = name;
 	}
 	
 	/**
-	 * A blocked annotation is defined by its blocks
-	 * @param blocks
-	 * @param name 
+	 * Constructor. Initializes a named BlockedAnnotation containing the blocks in the Collection.
+	 * @param blocks A Collection of blocks
+	 * @param name The name of the BlockedAnnotation
 	 */
 	public BlockedAnnotation(Collection<Annotation> blocks, String name){
 		this(name);
-		for(Annotation block: blocks){
+		for (Annotation block : blocks) {
 			addBlocks(block);
 		}
 	}
@@ -60,76 +62,89 @@ public class BlockedAnnotation extends AbstractAnnotation {
 	}
 	
 	/**
-	 * Add block to current blocks
-	 * If overlaps existing block, merge
-	 * Requires blocks have the same reference name and Strand
-	 * @param annot Annotation with blocks to add
-	 * @return if the block was successfully added
+	 * Add blocks to this BlockedInterval. If any added block overlaps
+	 * any existing blocks, these blocks are merged appropriately. All blocks must
+	 * have the same reference name and Strand. If a block is added to an empty
+	 * BlockedAnnotation, the BlockedAnnotation inherits the blocks reference name
+	 * and orientation.
+	 * @param annot The Annotation with blocks to add
+	 * @return Whether or not the blocks were added successfully
 	 */
 	public boolean addBlocks(Annotation annot) {
-		boolean added=false;
-		Iterator<SingleInterval> exons=annot.getBlocks();
-		while(exons.hasNext()){
-			added=update(exons.next());
+		boolean added = true;
+		Iterator<SingleInterval> exons = annot.getBlocks();
+		while (exons.hasNext()){
+			added = added && update(exons.next());
 		}
 		return added;
 	}
 
 	/**
-	 * Helper method to add single interval
-	 * @param interval The interval
-	 * @return whether it was successfully added
+	 * Helper method to add a SingleInterval to a BlockedAnnotation's blocks
+	 * @param interval The SingleInterval to be added
+	 * @return Whether or not the SingleInterval was added successfully
 	 */
 	private boolean update(SingleInterval interval) {
-		if(!started){
-			this.referenceName=interval.getReferenceName();
-			this.startPosition=interval.getReferenceStartPosition();
-			this.endPosition=interval.getReferenceEndPosition();
-			this.orientation=interval.getOrientation();
-			started=true;
-		}
-		else{
-			if(!this.referenceName.equalsIgnoreCase(interval.getReferenceName())){return false;}
-			if(!this.orientation.equals(interval.getOrientation())){return false;}
-			this.startPosition=Math.min(startPosition, interval.getReferenceStartPosition());
-			this.endPosition=Math.max(endPosition, interval.getReferenceEndPosition());
+		if (!started) {
+			this.referenceName = interval.getReferenceName();
+			this.startPosition = interval.getReferenceStartPosition();
+			this.endPosition = interval.getReferenceEndPosition();
+			this.orientation = interval.getOrientation();
+			started = true;
+		} else {
+			if (!this.referenceName.equalsIgnoreCase(interval.getReferenceName())) {
+				return false;
+			}
+			if (!this.orientation.equals(interval.getOrientation())) {
+				return false;
+			}
+			this.startPosition = Math.min(startPosition, interval.getReferenceStartPosition());
+			this.endPosition = Math.max(endPosition, interval.getReferenceEndPosition());
 		}
 		
-		boolean hasOverlappers=blocks.hasOverlappers(interval.getReferenceStartPosition(), interval.getReferenceEndPosition());
-		SingleInterval merged=interval;
-		if(hasOverlappers){
+		boolean hasOverlappers = blocks.hasOverlappers(interval.getReferenceStartPosition(), interval.getReferenceEndPosition());
+		SingleInterval merged = interval;
+		if (hasOverlappers){
 			//pull, merge, and update
-			Iterator<SingleInterval> iter=blocks.overlappingValueIterator(interval.getReferenceStartPosition(), interval.getReferenceEndPosition());
-			while(iter.hasNext()){
-				SingleInterval e=iter.next();
+			Iterator<SingleInterval> iter = blocks.overlappingValueIterator(interval.getReferenceStartPosition(), interval.getReferenceEndPosition());
+			while (iter.hasNext()) {
+				SingleInterval e = iter.next();
 				blocks.remove(e.getReferenceStartPosition(), e.getReferenceEndPosition()); // Pam added on 12/24/14
-				merged=merge(merged, e);
-				size-=e.size();
+				merged = merge(merged, e);
+				size -= e.size();
 			}
 		}
 		int end = merged.getReferenceEndPosition();
 		int start = merged.getReferenceStartPosition();
-		if(start>end) {
-			blocks.put(end,start, merged);
-		}
-		else {
+		if (start > end) {
+			blocks.put(end, start, merged);
+		} else {
 			blocks.put(start, end, merged);
 		}
-		size+=merged.size();
+		size += merged.size();
 		
 		return true;
 	}
 
 	@Override
+	/**
+	 * @return The name of this BlockedAnnotation
+	 */
 	public String getName() {
 		return this.name;
 	}
 
+	/**
+	 * @return An Iterator over this BlockedAnnotation's blocks
+	 */
 	public Iterator<SingleInterval> getBlocks() {
 		return this.blocks.valueIterator();
 	}
 
 	@Override
+	/**
+	 * @return the reference name of this BlockedAnnotation
+	 */
 	public String getReferenceName() {
 		return this.referenceName;
 	}

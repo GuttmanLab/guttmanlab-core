@@ -16,7 +16,7 @@ import org.junit.Test;
 
 public class BamCollectionFactoryTest {
 
-	private static SingleInterval malat1 = new SingleInterval("chr19", 5795689, 5802671, Strand.NEGATIVE, "Malat1");
+	private static SingleInterval malat1 = new SingleInterval("chr19", 5795689, 5802671, Strand.BOTH, "Malat1");
 	
 	private URL singleBamUrl = this.getClass().getResource("/guttmanlab/core/test/SingleCollectionTest.bam");
 	private URL pairedBamUrl = this.getClass().getResource("/guttmanlab/core/test/PairedCollectionTest.bam");
@@ -60,7 +60,7 @@ public class BamCollectionFactoryTest {
 	@Test
 	public void testPairedIteratorCount() {
 		AbstractAnnotationCollection<? extends MappedFragment> data = BAMFragmentCollectionFactory.createFromBam(pairedBam);
-		assertEquals(7, data.getNumAnnotations());
+		assertEquals(8, data.getNumAnnotations());
 	}
 	
 	@Test(expected = UnsupportedOperationException.class)
@@ -83,20 +83,10 @@ public class BamCollectionFactoryTest {
 	public void testPairedIteration() {
 		AbstractAnnotationCollection<? extends MappedFragment> data = BAMFragmentCollectionFactory.createFromBam(pairedBam);
 		CloseableIterator<? extends MappedFragment> iter = data.sortedIterator();
-		assertTrue(iter.hasNext());
-		iter.next();
-		assertTrue(iter.hasNext());
-		iter.next();
-		assertTrue(iter.hasNext());
-		iter.next();
-		assertTrue(iter.hasNext());
-		iter.next();
-		assertTrue(iter.hasNext());
-		iter.next();
-		assertTrue(iter.hasNext());
-		iter.next();
-		assertTrue(iter.hasNext());
-		iter.next();
+		for (int i = 0; i < 8; i++) {
+			assertTrue(iter.hasNext());
+			iter.next();			
+		}
 		assertFalse(iter.hasNext());
 		iter.close();
 	}
@@ -110,13 +100,13 @@ public class BamCollectionFactoryTest {
 	@Test
 	public void testSingleNumOverlappersFull() {
 		AbstractAnnotationCollection<? extends MappedFragment> data = BAMFragmentCollectionFactory.createFromBam(singleBam);
-		assertEquals(4, data.numOverlappers(malat1, true));
+		assertEquals(2, data.numOverlappers(malat1, true));
 	}
 
 	@Test
 	public void testPairedNumOverlappersPartial() {
 		AbstractAnnotationCollection<? extends MappedFragment> data = BAMFragmentCollectionFactory.createFromBam(pairedBam);
-		assertEquals(5, data.numOverlappers(malat1, false));
+		assertEquals(6, data.numOverlappers(malat1, false));
 	}
 	
 	@Test

@@ -253,13 +253,6 @@ public interface Annotation {
 	public SAMRecord getSamRecord(SAMFileHeader header);
 	
 	/**
-	 * Tests whether the object is fully contained within this one
-	 * @param other The object to compare to this
-	 * @return Whether the annotation is fully contained within this object
-	 */
-	public boolean fullyContained(Annotation other);
-	
-	/**
 	 * Returns an annotation trimmed to the specified start and end coordinates
 	 * @param start the lower bound of the trimmed annotation
 	 * @param end the upper bound of the trimmed annotation

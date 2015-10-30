@@ -3,10 +3,10 @@ package guttmanlab.core.annotationcollection;
 import guttmanlab.core.annotation.Annotation;
 import guttmanlab.core.annotation.PairedMappedFragment;
 import guttmanlab.core.annotation.SAMFragment;
+import guttmanlab.core.annotation.predicate.ContainedByFilter;
+import guttmanlab.core.annotation.predicate.OverlapsFilter;
 import guttmanlab.core.coordinatespace.CoordinateSpace;
-import guttmanlab.core.datastructures.IntervalTree;
 import guttmanlab.core.datastructures.Pair;
-import guttmanlab.core.datastructures.IntervalTree.Node;
 
 import java.io.File;
 import java.util.Collection;
@@ -78,28 +78,43 @@ public class BAMPairedFragmentCollection extends AbstractAnnotationCollection<Pa
 	}
 	
 	private SpecialBAMPECollection getPairedEndFragmentFile() {
-		if(this.fragmentReader!=null){return fragmentReader;}
-		else if(this.fragmentFile.exists()){
-			logger.info("Fragment file exists " + fragmentFile.getName());
-			fragmentReader=new SpecialBAMPECollection(fragmentFile);
+
+		if (this.fragmentReader != null) {
 			return fragmentReader;
-		}
-		else{
-			//Get the paired iterator
-			CloseableIterator<PairedMappedFragment<SAMFragment>> iter=sortedIterator();
-			//Create an indexed BAM file
-			SAMFileWriter writer=new SAMFileWriterFactory().setCreateIndex(true).makeSAMOrBAMWriter(reads.getFileHeader(), false, fragmentFile);
-			//For each pair, write it with appropriate flags
-			logger.info("Writing fragment file " + fragmentFile.getName());
-			while(iter.hasNext()){
-				PairedMappedFragment<SAMFragment> pair=iter.next();
-				convertToCustomSAMFormat(pair, writer);
+
+		} else if (this.fragmentFile.exists()) {
+			logger.info("Fragment file exists " + fragmentFile.getName());
+			fragmentReader = new SpecialBAMPECollection(fragmentFile);
+			return fragmentReader;
+
+		} else {
+			CloseableIterator<PairedMappedFragment<SAMFragment>> iter = null;
+			SAMFileWriter writer = null;
+			
+			try {
+				//Get the paired iterator
+				iter = sortedIterator();
+
+				//Create an indexed BAM file
+				writer = new SAMFileWriterFactory().setCreateIndex(true).makeSAMOrBAMWriter(reads.getFileHeader(), false, fragmentFile);
+
+				//For each pair, write it with appropriate flags
+				logger.info("Writing fragment file " + fragmentFile.getName());
+				while(iter.hasNext()) {
+					PairedMappedFragment<SAMFragment> pair = iter.next();
+					convertToCustomSAMFormat(pair, writer);
+				}
+			} finally {
+				if (iter != null) {
+					iter.close();
+				}
+				if (writer != null) {
+					writer.close();
+				}
 			}
-			//Close iterator and writer
-			iter.close();
-			writer.close();
+
 			//Make fragment reader of special format
-			fragmentReader=new SpecialBAMPECollection(fragmentFile);
+			fragmentReader = new SpecialBAMPECollection(fragmentFile);
 			return fragmentReader;
 		}
 	}
@@ -157,24 +172,35 @@ public class BAMPairedFragmentCollection extends AbstractAnnotationCollection<Pa
 
 	@Override
 	public CloseableIterator<PairedMappedFragment<SAMFragment>> sortedIterator(Annotation region, boolean fullyContained) {
-		//Go through the fragments iterator and parse from SAM into new format
+
+		// Go through the fragments iterator and parse from SAM into new format
 		SpecialBAMPECollection fragments = this.getPairedEndFragmentFile();
+
+		// Get existing filters and add them.
 		Collection<Predicate<PairedMappedFragment<SAMFragment>>> c = getFilters();
 		Iterator<Predicate<PairedMappedFragment<SAMFragment>>> iter = c.iterator();
 		while (iter.hasNext()) {
 			fragments.addFilter(iter.next());
 		}
-		return fragments.sortedIterator(region, fullyContained);
+		
+		// Add an additional filter to exclude non-overlapping or non-contained fragments.
+		if (fullyContained) {
+			fragments.addFilter(new ContainedByFilter<PairedMappedFragment<SAMFragment>>(region));
+		} else {
+			fragments.addFilter(new OverlapsFilter<PairedMappedFragment<SAMFragment>>(region));
+		}
+		
+		return fragments.sortedIterator();
 	}
 
 	/**
-	 * Iterator which goes through a paired-end BAM file and returns complete fragments. It does this by going
-	 * through the BAM file with a CloseableIterator<SAMFragment>. When a read is examined, but its mate has
-	 * yet to be seen, it is stored in a Map and the next read is examined. If its mate has already been seen,
-	 * the mate is retrieved from the Map, the read and its mate are used to construct a PairedMappedFragment,
-	 * and that PairedMappedFragment is returned.
+	 * Iterator which goes through a paired-end BAM file and returns complete fragments (that is, fragments
+	 * with both reads). It does this by going through the BAM file with a CloseableIterator<SAMFragment>.
+	 * When a read is examined, but its mate has yet to be seen, it is stored in a Map and the next read is
+	 * examined. If its mate has already been seen, the mate is retrieved from the Map, the read and its mate are
+	 * used to construct a PairedMappedFragment, and that PairedMappedFragment is returned.
 	 */
-	private class PairedIterator implements CloseableIterator<PairedMappedFragment<SAMFragment>>{
+	private class PairedIterator implements CloseableIterator<PairedMappedFragment<SAMFragment>> {
 
 		CloseableIterator<SAMFragment> iter;
 		Pair<SAMFragment> nextPair;
@@ -307,12 +333,6 @@ public class BAMPairedFragmentCollection extends AbstractAnnotationCollection<Pa
 		public CloseableIterator<PairedMappedFragment<SAMFragment>> sortedIterator(Annotation region, boolean fullyContained) {
 			return new FilteredIterator<PairedMappedFragment<SAMFragment>>(new WrappedIterator(reader, region), getFilters());
 		}
-		
-		/*  OLD CODE
-		@Override
-		public CloseableIterator<PairedMappedFragment<SAMFragment>> sortedIterator(Annotation region, boolean fullyContained) {
-			return new FilteredIterator<PairedMappedFragment<SAMFragment>>(new WrappedIterator(reader, region), getFilters());
-		}*/
 
 		public void writeToFile(String fileName) {
 			writeToFile(fileName, sortedIterator());

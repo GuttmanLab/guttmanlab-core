@@ -26,9 +26,9 @@ public class MergeTest {
 		a2.addBlocks(block2);
 		
 		Annotation a3 = a1.merge(a2);
-		assertEquals("merged should have 1 block.",1,a3.getNumberOfBlocks());
-		assertEquals("merged start = 100",100,a3.getReferenceStartPosition());
-		assertEquals("merged end = 500",500,a3.getReferenceEndPosition());
+		assertEquals("Merged should have 1 block.", 1, a3.getNumberOfBlocks());
+		assertEquals("Merged start = 100", 100, a3.getReferenceStartPosition());
+		assertEquals("Merged end = 500", 500, a3.getReferenceEndPosition());
 	}
 	
 	@Test
@@ -46,15 +46,15 @@ public class MergeTest {
 		a2.addBlocks(block4);
 		
 		Annotation a3 = a1.merge(a2);
-		assertEquals("merged should have 2 blocks.",2,a3.getNumberOfBlocks());
+		assertEquals("Merged should have 2 blocks.", 2, a3.getNumberOfBlocks());
 		Iterator<SingleInterval> iter = a3.getBlocks();
 		Annotation a31 = iter.next();
 		Annotation a32 = iter.next();
 		
-		assertEquals("block1 start = 50",50,a31.getReferenceStartPosition());
-		assertEquals("block1 end = 300",300,a31.getReferenceEndPosition());
-		assertEquals("block2 start = 325",325,a32.getReferenceStartPosition());
-		assertEquals("block2 end = 500",500,a32.getReferenceEndPosition());
+		assertEquals("Block1 start = 50", 50, a31.getReferenceStartPosition());
+		assertEquals("Block1 end = 300", 300, a31.getReferenceEndPosition());
+		assertEquals("Block2 start = 325", 325, a32.getReferenceStartPosition());
+		assertEquals("Block2 end = 500", 500, a32.getReferenceEndPosition());
 	}
 	
 	@Test
@@ -72,9 +72,9 @@ public class MergeTest {
 		a2.addBlocks(block4);
 		
 		Annotation a3 = a1.merge(a2);
-		assertEquals("merged should have 1 blocks.",1,a3.getNumberOfBlocks());
-		assertEquals("block1 start = 50",50,a3.getReferenceStartPosition());
-		assertEquals("block2 end = 500",500,a3.getReferenceEndPosition());
+		assertEquals("Merged should have 1 blocks.", 1, a3.getNumberOfBlocks());
+		assertEquals("Block1 start = 50", 50, a3.getReferenceStartPosition());
+		assertEquals("Block2 end = 500", 500, a3.getReferenceEndPosition());
 	}
 	
 	//@Test //appears orientation is not used by overlaps() 
@@ -180,5 +180,4 @@ public class MergeTest {
 		FeatureCollection<BlockedAnnotation> fc_merged = fc.merge();
 		assertEquals("merged fc contains two annotations",2,fc_merged.getNumAnnotations());
 	}
-	
 }

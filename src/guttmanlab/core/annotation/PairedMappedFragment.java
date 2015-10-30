@@ -11,36 +11,58 @@ import java.util.Iterator;
 public class PairedMappedFragment<T extends Annotation> extends AbstractNamedAnnotation implements MappedFragment{
 
 	private Pair<T> pair;
-	
+
+	/**
+	 * Constructor. Initializes a PairedMappedFragment with the two Annotations.
+	 * @param v1 The first Annotation
+	 * @param v2 The second Annotation
+	 * @throws IllegalArgumentException if the names of the reads in the pair are not equal
+	 * @throws IllegalArgumentException if the reference names of the reads in the pair are not equal
+	 */
 	public PairedMappedFragment(T v1, T v2){
 		this(new Pair<T>(v1, v2));
 	}
 	
+	/**
+	 * Constructor. Initializes a PairedMappedFragment with the two Annotations in the Pair.
+	 * @param pair The Pair of Annotations
+	 * @throws IllegalArgumentException if the names of the reads in the pair are not equal
+	 * @throws IllegalArgumentException if the reference names of the reads in the pair are not equal
+	 */
 	public PairedMappedFragment(Pair<T> pair){
 		this.pair=pair;
 		ensureMatch();
 	}
 	
+	/**
+	 * Helper method. Ensures that the Annotations in a Pair are compatible. Throws an exception if not.
+	 * @throws IllegalArgumentException if the names of the reads in the pair are not equal
+	 * @throws IllegalArgumentException if the reference names of the reads in the pair are not equal
+	 */
 	private void ensureMatch() {
-		if(!pair.getValue1().getName().equalsIgnoreCase(pair.getValue2().getName())){
+		if (!pair.getValue1().getName().equalsIgnoreCase(pair.getValue2().getName())) {
 			throw new IllegalArgumentException("Names of two reads in the pair must be equal");
 		}
 		
-		if(!pair.getValue1().getReferenceName().equalsIgnoreCase(pair.getValue2().getReferenceName())){
+		if (!pair.getValue1().getReferenceName().equalsIgnoreCase(pair.getValue2().getReferenceName())) {
 			throw new IllegalArgumentException("Reference for two reads must be equal");
 		}
 		
 	}
 
 	/**
-	 * @return Return the first of pair read
+	 * @return Return the first-of-pair read
 	 */
-	public T getRead1(){return pair.getValue1();}
+	public T getRead1() {
+		return pair.getValue1();
+	}
 	
 	/**
-	 * @return Return the second of pair read
+	 * @return Return the second-of-pair read
 	 */
-	public T getRead2(){return pair.getValue2();}
+	public T getRead2() {
+		return pair.getValue2();
+	}
 	
 	@Override
 	public String getName() {
@@ -98,12 +120,18 @@ public class PairedMappedFragment<T extends Annotation> extends AbstractNamedAnn
 	}
 
 	@Override
+	/**
+	 * Not implemented yet
+	 */
 	public int getRelativePositionFrom5PrimeOfFeature(int referenceStart) {
 		// FIXME Auto-generated method stub
 		throw new UnsupportedOperationException("TODO");
 	}
 
 	@Override
+	/**
+	 * Not implemented yet
+	 */
 	public Collection<? extends ReadFlag> getReadFlags() {
 		// TODO Auto-generated method stub
 		throw new UnsupportedOperationException("TODO");
