@@ -159,5 +159,9 @@ public class Sequence {
 		String s = getName() + ":" + getSequenceBases();
 		return s.hashCode();
 	}
+
+	public int length() {
+		return sequence.length();
+	}
 	
 }

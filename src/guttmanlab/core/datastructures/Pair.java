@@ -57,40 +57,48 @@ public class Pair<T>{
 	 */
 	@Override
 	public boolean equals(Object other) {
-		if (other == null) {
+
+		// No need for null check. The instanceof operator returns false if (other == null).
+		if (!(other instanceof Pair)) {
 			return false;
 		}
-		
-		if (!other.getClass().equals(Pair.class)) {
-			return false;
-		}
-		
+
+		// OK to cast this. Class was explicitly checked above
 		@SuppressWarnings("unchecked")
-		Pair<T> o = (Pair<T>)other;  // OK to cast this class;
+		Pair<T> o = (Pair<T>)other;
 		
-		boolean cond1 = compareValues(this.value1, o.value1);
-		boolean cond2 = compareValues(this.value2, o.value2);
+		boolean cond1 = (value1 == null ? o.value1 == null : value1.equals(o.value1));
+		boolean cond2 = (value2 == null ? o.value2 == null : value2.equals(o.value2));
 		return cond1 && cond2;
 	}
-
-	/**
-	 * Simple helper method for Pair<T>.equals(). Compares two Ts,
-	 * taking into account that null == null.
-	 * @param a T 1
-	 * @param b T 2
-	 * @return If the two Ts are equal.
-	 */
-	private boolean compareValues(T a, T b) {
-		if (a == null || b == null) {
-			return a == null && b == null;
-		}
-			return a.equals(b);
+	
+	@Override
+	public int hashCode() {
+		int hashCode = 17;
+		hashCode = value1 == null ? 31 * hashCode : 31 * hashCode + value1.hashCode();
+		hashCode = value2 == null ? 31 * hashCode : 31 * hashCode + value2.hashCode();
+		return hashCode;
 	}
 	
-	public int hashCode() {
-		if(value1==null){return value2.hashCode();}
-		if(value2==null){return value1.hashCode();}
-		String h = Integer.valueOf(value1.hashCode()).toString() + "_" + Integer.valueOf(value2.hashCode()).toString();
-		return h.hashCode();
+	/**
+	 *  Returns a String representation of this Pair by recursively calling toString()
+	 *  on its members. The exact details of this representation are unspecified and
+	 *  subject to change, but the following may be regarded as typical:
+	 *  
+	 *  "(value1, value2)"
+	 */
+	@Override
+	public String toString() {
+		if (isComplete()) {
+			return "(" + value1.toString() + ", " + value2.toString() + ")";
+		}
+		if (isEmpty()) {
+			return "(null, null)";
+		}
+		if (!hasValue1()) {
+			return "(null, " + value2.toString() + ")";
+		}
+		// else value2 == null
+		return "(" + value1.toString() + ", null)";
 	}
 }
